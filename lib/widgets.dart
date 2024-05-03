@@ -17,7 +17,9 @@ class ScanResultTile extends StatefulWidget {
 class _ScanResultTileState extends State<ScanResultTile> {
   Widget _buildTitle(BuildContext context) {
     if (widget.result.device.name.isNotEmpty) {
-      newrsssi = widget.result.rssi.toDouble();
+      setState(() {
+        newrsssi = widget.result.rssi.toDouble();
+      });
       return Column(
         mainAxisAlignment: MainAxisAlignment.start,
         crossAxisAlignment: CrossAxisAlignment.start,

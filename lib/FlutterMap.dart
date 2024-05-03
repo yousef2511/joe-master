@@ -1,13 +1,15 @@
-import 'dart:convert';
-import 'package:joe/widgets.dart';
 import 'package:flutter/material.dart';
-import 'package:joe/newB.dart';
-import 'dart:math';
+import 'package:firebase_database/firebase_database.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'newB.dart';
+import 'package:joe/Login_page.dart';
+
+final database = FirebaseDatabase.instance.reference();
 
 List<Beacon> beacons = [
-  Beacon( mac: "58:7A:62:39:C1:CB" , x: 50, y: 80, distance: d ),
-  Beacon(mac: "", x: 350, y: 80, distance: d ),
-  Beacon(mac: "", x: 200, y: 700, distance: d ),
+  Beacon(mac: "C8:FD:19:62:CC:44", x: 0, y: 0, distance: d1),
+  Beacon(mac: "10:CE:A9:2E:8C:98", x: 380, y: 0, distance: d2),
+  Beacon(mac: "58:7A:62:39:1C:CB", x: 200, y: 700, distance: d3),
 ];
 
 class MapScreen extends StatefulWidget {
@@ -16,7 +18,6 @@ class MapScreen extends StatefulWidget {
 }
 
 class _MapScreenState extends State<MapScreen> {
-
   Position? currentPosition;
 
   @override
@@ -29,16 +30,21 @@ class _MapScreenState extends State<MapScreen> {
         onTapDown: (details) {
           setState(() {
             currentPosition = calculateCurrentPosition(details.localPosition);
+            if (currentPosition != null) {
+              saveCurrentPosition('user_id', currentPosition!.x, currentPosition!.y);
+            }
           });
         },
         child: CustomPaint(
           foregroundPainter: MapPainter(
-              beacons: beacons, currentPosition: currentPosition),
+            beacons: beacons,
+            currentPosition: currentPosition,
+          ),
           child: Container(
             // Set the background image path here
             decoration: BoxDecoration(
               image: DecorationImage(
-                image: AssetImage('images/section.jpg'),
+                image: AssetImage('images/sec.jpg'),
                 fit: BoxFit.fill,
               ),
             ),
@@ -49,8 +55,7 @@ class _MapScreenState extends State<MapScreen> {
   }
 
   Position? calculateCurrentPosition(Offset tapPosition) {
-    List<Beacon> availableBeacons = beacons.where((beacon) =>
-    beacon.distance != null).toList();
+    List<Beacon> availableBeacons = beacons.where((beacon) => beacon.distance != null).toList();
     if (availableBeacons.length < 3) {
       return null; // Not enough beacons to perform trilateration
     }
@@ -85,16 +90,33 @@ class _MapScreenState extends State<MapScreen> {
     return Position(x: x, y: y);
   }
 
+  void saveCurrentPosition(String position, double x, double y)async{
+    SharedPreferences preferences = await SharedPreferences.getInstance();
+    var uid = preferences.getString("uid")?? "";
+    var isStuff = preferences.getBool("stuff")??false;
 
+    database.child('ID').child('${isStuff?"staff":"passengers"}/$uid').child('position').set({
+      'x': x,
+      'y': y,
+      'datetime' : DateTime.now(),
+    });
+  }
+
+  // Method to update the current position
+  void updateCurrentPosition(double x, double y) {
+    setState(() {
+      currentPosition = Position(x: x, y: y);
+    });
+  }
 }
 
 class Beacon {
   final String mac;
   final double x;
   final double y;
-  final double? distance;
+  late final double? distance;
 
-  Beacon( {required this.mac, required this.x, required this.y, this.distance});
+  Beacon({required this.mac, required this.x, required this.y, this.distance});
 }
 
 class Position {

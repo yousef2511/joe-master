@@ -1,7 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:joe/home_page.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_database/firebase_database.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp();
   runApp(MyApp());
 }
 
@@ -17,12 +22,43 @@ class MyApp extends StatelessWidget {
 
 class LoginPage extends StatefulWidget {
   @override
-  _MyHomePageState createState() => _MyHomePageState();
+  _LoginPageState createState() => _LoginPageState();
 }
 
-class _MyHomePageState extends State<LoginPage> {
+class _LoginPageState extends State<LoginPage> {
   bool isPassengerChecked = false;
   bool isStaffChecked = false;
+  String userId = '';
+
+  Future<void> saveIDToDatabase(String userType, String id) async {
+    final database = FirebaseDatabase.instance;
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+
+    DatabaseReference collectionRef = database.reference().child('ID');
+
+    if (userType == 'Passenger') {
+      collectionRef = collectionRef.child('passengers');
+      prefs.setBool("stuff", false);
+    } else if (userType == 'Staff') {
+      collectionRef = collectionRef.child('staff');
+      prefs.setBool("stuff", true);
+    }
+
+    collectionRef.child(id).set({'id': id}).then((value){
+      // Successfully saved the ID to the collection
+      print('User ID saved: $id');
+
+      // Obtain shared preferences.
+      prefs.setString("uid", id);
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => HomePage()),
+      );
+    }).catchError((error) {
+      // Handle error saving the ID
+      print('Error saving user ID: $error');
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -42,6 +78,11 @@ class _MyHomePageState extends State<LoginPage> {
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 child: TextField(
+                  onChanged: (value) {
+                    setState(() {
+                      userId = value;
+                    });
+                  },
                   decoration: InputDecoration(
                     hintText: 'Enter Your ID',
                     fillColor: Colors.white,
@@ -66,6 +107,9 @@ class _MyHomePageState extends State<LoginPage> {
                           onChanged: (value) {
                             setState(() {
                               isPassengerChecked = value!;
+                              if (isPassengerChecked) {
+                                isStaffChecked = false;
+                              }
                             });
                           },
                         ),
@@ -81,6 +125,9 @@ class _MyHomePageState extends State<LoginPage> {
                           onChanged: (value) {
                             setState(() {
                               isStaffChecked = value!;
+                              if (isStaffChecked) {
+                                isPassengerChecked = false;
+                              }
                             });
                           },
                         ),
@@ -92,12 +139,16 @@ class _MyHomePageState extends State<LoginPage> {
               SizedBox(height: 20),
               ElevatedButton(
                 onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => HomePage(),
-                    ),
-                  );
+                  if (isPassengerChecked || isStaffChecked) {
+                    if (userId.isNotEmpty) {
+                      String userType = isPassengerChecked ? 'Passenger' : 'Staff';
+                      saveIDToDatabase(userType, userId);
+                    } else {
+                      showErrorMessage('Please Enter Your ID');
+                    }
+                  } else {
+                    showErrorMessage('Please Choose Passenger or Staff');
+                  }
                 },
                 child: Text('Login'),
               ),
@@ -105,6 +156,26 @@ class _MyHomePageState extends State<LoginPage> {
           ),
         ),
       ),
+    );
+  }
+
+  void showErrorMessage(String message) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text('Error'),
+          content: Text(message),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              child: Text('OK'),
+            ),
+          ],
+        );
+      },
     );
   }
 }
